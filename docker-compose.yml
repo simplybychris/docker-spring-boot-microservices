@@ -1,0 +1,68 @@
+version: "3.9"
+services:
+  # Postgres Database
+  postgres_db:
+    container_name: database
+    restart: on-failure
+    image: postgres:alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=familydb
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bridge_net
+
+  # Family App
+  family-app:
+    container_name: family-app
+    restart: always
+    build:
+      dockerfile: Dockerfile
+      context: ./family-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/familydb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8080:8080"
+    networks:
+      - bridge_net
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+
+  # Family Member App
+  family-member-app:
+    container_name: family-member-app
+    restart: on-failure
+    build:
+      dockerfile: Dockerfile
+      context: ./family-member-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres_db:5432/familydb
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+    ports:
+      - "8090:8090"
+    networks:
+      - bridge_net
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      family-app:
+        condition: service_started
+
+networks:
+  bridge_net:
+    driver: bridge
+
+
